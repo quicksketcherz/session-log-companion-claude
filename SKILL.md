@@ -1,6 +1,6 @@
 ---
 name: session-log-companion
-description: Comprehensive project session companion for documenting work sessions, creating knowledge logs when discovering or learning something, teaching agent preferences, and improving collaboration. Use when user says "start a session", "create session log", "summarize this session", "document this discovery", "create a knowledge log", "I want to improve how you work with me", "remember this preference", or any session/documentation-related request. Also trigger when user mentions being stuck, hitting an impasse, needing to understand concepts, or wanting to capture learnings.
+description: Comprehensive project session companion for documenting work sessions, creating knowledge logs when discovering or learning something, teaching agent preferences, and improving collaboration. Use when user says "start a session", "create session log", "summarize this session", "document this discovery", "create a knowledge log", "I want to improve how you work with me", "remember this preference", "let's continue", "continue from last session", "pick up where we left off", "what should I work on next", or any session/documentation-related request. Also trigger when user mentions being stuck, hitting an impasse, needing to understand concepts, or wanting to capture learnings.
 ---
 
 # Session Log Companion (SLC)
@@ -14,15 +14,17 @@ A comprehensive companion for project sessions that helps you document your work
 This skill triggers for four main scenarios:
 
 1. **Starting a session** - "start a session", "begin session log", "let's work on X"
-2. **Creating knowledge logs** - "document this", "create a knowledge log", "I'm stuck", "can you explain how X works"
-3. **Teaching preferences** - "I want to improve how you work with me", "remember this preference", "I prefer X style"
-4. **Ending a session** - "summarize this session", "create session log", "wrap up"
+2. **Continuing a session** - "let's continue", "continue from last session", "pick up where we left off", "what should I work on next"
+3. **Creating knowledge logs** - "document this", "create a knowledge log", "I'm stuck", "can you explain how X works"
+4. **Teaching preferences** - "I want to improve how you work with me", "remember this preference", "I prefer X style"
+5. **Ending a session** - "summarize this session", "create session log", "wrap up"
 
 ## Enforcement Rule
 
 **When user requests any action covered by this skill's four workflows, you MUST follow the complete workflow steps - do not create files or take shortcuts directly.**
 
 Key checkpoints:
+- **Continue session** → Always ask intention first, then time available, before scanning session logs (Steps 1-2 of Workflow 1b)
 - **Knowledge logs** → Always ask "Which tool should I document this for?" before creating (Step 3 of Workflow 2)
 - **Preference logs** → Always offer Cursor rules integration after creating (Step 3 of Workflow 3)
 - **Session logs** → Always check for undocumented items before finalizing (Step 2 of Workflow 4)
@@ -57,6 +59,90 @@ When the user wants to begin a work session:
 User: "Start a session for building a TouchDesigner particle system"
 
 Agent: "Got it! We're starting a session on TouchDesigner particle systems. I'll help document any discoveries or learnings as we work. What's the first thing you want to tackle?"
+
+---
+
+### Workflow 1b: Continuing a Session
+
+When the user says "let's continue", "pick up where we left off", "what should I work on next", or similar:
+
+#### Step 1: Ask Intention
+
+Ask: "What do you want to work on?"
+
+The user may already know exactly what they want to do (from a session hours ago, or an idea they had offline). Let them state it first — don't dump a list of options before they've had a chance to think.
+
+#### Step 2: Ask Time Available
+
+Ask: "How much time do you have?"
+
+This scopes what's realistic. A 10-minute session is different from an hour — don't suggest deep refactoring work for a quick session.
+
+#### Step 3: Scan Recent Session Logs
+
+Read the last 5 session logs in `session-logs/` (sorted by filename, most recent first). Extract the **Next Steps** section from each.
+
+**If user stated a clear intention** → Match their intention against the collected Next Steps. Surface any relevant items and note which session they came from. This helps the user see connections they might have forgotten ("Oh right, that's related to what I was doing last week").
+
+**If user draws a blank** → Present the Next Steps from recent sessions as a menu of options, grouped by session. Let the user pick what feels right.
+
+#### Step 4: Scope to Time
+
+Based on the time available, help the user pick a realistic slice:
+- **10 min** → one small, contained task (a single next step item, a quick note, a review)
+- **20-30 min** → one substantial task or 2-3 small ones
+- **1+ hour** → a full work block, potentially spanning multiple next steps
+
+Don't over-plan — just confirm the focus and begin.
+
+#### Step 5: Begin Work
+
+Proceed with Workflow 1 (set documentation expectations, stay alert for moments worth documenting). The continue workflow feeds into the regular session flow.
+
+**Example interactions:**
+
+User: "Let's continue"
+
+Agent: "What do you want to work on?"
+
+User: "The deep modules thing for TD containers"
+
+Agent: "How much time do you have?"
+
+User: "About 20 minutes"
+
+Agent: *Scans last 5 session logs, finds relevant Next Steps from 2026-05-20-0219*
+
+Agent: "From your last session, you had these next steps related to that:
+- Decide whether to create a separate `/td-deepen-architecture` skill or fold it into TSC
+- Adapt the vocabulary mapping into a proper SKILL.md
+- Test the deletion test against real TD scaffold outputs
+
+With 20 minutes, we could tackle the first decision and sketch the outline if you go separate skill. Want to start there?"
+
+---
+
+User: "What should I work on next?"
+
+Agent: "What are you thinking? Anything specific on your mind?"
+
+User: "Not really, just have some time"
+
+Agent: "How much time?"
+
+User: "Like an hour"
+
+Agent: *Scans last 5 session logs, presents Next Steps grouped by session*
+
+Agent: "Here's what's open from recent sessions:
+**From 2026-05-20 (Deep Modules Research):**
+- Decide on separate skill vs folding into TSC
+- Test deletion test against real TD scaffolds
+
+**From 2026-05-20 (First Complete Draft):**
+- [items from that session's next steps]
+
+What catches your eye?"
 
 ---
 
@@ -115,7 +201,7 @@ Create the folder if it doesn't exist.
 3. Read the appropriate template:
    - Discovery: `references/discovery-log-template.md`
    - Learning: `references/learning-log-template.md`
-   - **If not found in the project directory**, read from the global install: `~/.claude/skills/session-log-companion-claude-v1/references/`
+   - **If not found in the project directory**, read from the global install: `~/.claude/skills/session-log-companion-v1/references/`
 4. Fill in the template with information gathered
 5. Include any commands used in the "Commands Used" section
 6. Save to: `resources/[tool]-knowledge-logs/YYYY-MM-DD-HHMM-Brief-Title.md`
@@ -308,18 +394,29 @@ Wait for confirmation before proceeding.
 #### Step 4: Generate Session Log
 
 1. Generate timestamp: `date "+%Y-%m-%d %H%M"`
-2. Read the session log template: `references/session-log-template.md` (if not found in project, use `~/.claude/skills/session-log-companion-claude-v1/references/session-log-template.md`)
+2. Read the session log template: `references/session-log-template.md` (if not found in project, use `~/.claude/skills/session-log-companion-v1/references/session-log-template.md`)
 3. Fill in all sections based on session review
 4. Use "see notes:" pattern to reference any knowledge logs created
 5. Include "AI Rules to Create Later" or "Guides to Update Later" sections if applicable
-6. Save to: `session-logs/YYYY-MM-DD-HHMM-Session-Title.md`
+6. **Always include an "Honest Self-Assessment" section** — see required sections below
+7. **Always end with a "Session Insight" section** — see required sections below
+8. Save to: `session-logs/YYYY-MM-DD-HHMM-Session-Title.md`
+
+**Required sections (always include):**
+
+- **Honest Self-Assessment** — placed after testing/accomplishments and before "Carry Forward to Next Session." Names what didn't work, what's untested, what's parked, and what the agent or user might be pattern-matching ahead of evidence. The point is to prevent future-self from reading the log and assuming everything was settled when it wasn't. Keep it short — 2–4 honest bullet points or a short paragraph. If the session genuinely had no caveats worth flagging, write "No significant caveats — everything tested was validated by results" rather than skipping the section.
+
+- **Session Insight** — the final section of every session log. One sentence (not a list, not a paragraph) on what changed about how the user works, or what design principle the session surfaced. The constraint of "one sentence" is the design — it forces a *meta* observation rather than a recap. If you can't condense it to one sentence, the insight isn't ready yet.
 
 **Key principles for session logs:**
 - Keep it concise - use "see notes:" to reference detailed documentation
 - Cross-reference knowledge logs by timestamp
 - Only list project files in "Files Created/Modified" (not the logs themselves)
 - Capture the "why" behind decisions, not just the "what"
+- Capture the texture of the session, not just the outputs — the *how* of the work is what makes logs worth re-reading later
 - Leave "USER_FILL_WHAT_AI_MODEL_NAME_WAS_USED" as-is (the agent cannot detect the model name in Cursor; the user will fill it in manually from their model selector)
+
+**Note on template file:** If `references/session-log-template.md` exists in the project, it should also be updated to include the Honest Self-Assessment and Session Insight sections so the template and this SKILL.md stay aligned.
 
 **Documenting code/expressions:** When including code snippets, expressions, scripts, or configurations in session logs, always include context: **Where used** (which file/operator/parameter), **What it does** (brief explanation), and **How it connects** (integration with the rest of the system). Code without context is hard to reuse.
 
